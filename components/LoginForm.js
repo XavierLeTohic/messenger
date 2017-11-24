@@ -4,6 +4,7 @@ import { Form, Icon, Input, Button, message } from 'antd'
 import { observable } from 'mobx'
 import { observer } from 'mobx-react'
 import io from 'socket.io-client'
+import Cookies from 'js-cookie'
 
 const FormItem = Form.Item;
 
@@ -16,12 +17,15 @@ class LoginForm extends Component {
         this.socket = io();
 
         // Checking is the username is available
-        this.socket.on('usernameAvailable', (isAvailable) => {
-            if(!isAvailable) {
+        this.socket.on('loginResponse', (res) => {
+
+            // Username not available
+            if(!res.isAvailable) {
                 this.loading = false;
                 return message.error('This username is not available')
             }
 
+            Cookies.set('sessionId', res.sessionId);
             Router.push('/conversation')
         });
     }

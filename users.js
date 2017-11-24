@@ -1,4 +1,5 @@
 const { observable } = require('mobx');
+const shortid = require('shortid')
 
 module.exports = class Users {
 
@@ -13,20 +14,44 @@ module.exports = class Users {
             socket.on('login', (username) => {
 
                 const isAvailable = this.usernameIsAvailable(username);
-                socket.emit('usernameAvailable', isAvailable)
 
-                if(isAvailable) {
-                    this.users.push(username)
-                    this.io.emit('userJoinedGeneral', username)
+                if(!isAvailable) {
+                    return socket.emit('loginResponse', { isAvailable })
                 }
+
+                const user = {
+                    isAvailable,
+                    username,
+                    sessionId: shortid.generate()
+                }
+
+                this.users.push(user)
+                socket.emit('loginResponse', user)
+                this.io.emit('userJoinedGeneral', username)
 
             });
         });
     }
 
+    /**
+     * Here we check is the username is available
+     * @param username
+     * @returns {boolean|*}
+     */
     usernameIsAvailable(username) {
-        return this.users.every((name) => {
-            return name !== username
+        return this.users.every((user) => {
+            return user.name !== username
+        })
+    }
+
+    /**
+     * Here we check is the session exist on users list
+     * @param sessionId
+     * @returns {boolean|*}
+     */
+    sessionExist(sessionId) {
+        return this.users.some((user) => {
+            return user.sessionId === sessionId
         })
     }
 }

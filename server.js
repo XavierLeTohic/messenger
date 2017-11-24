@@ -3,7 +3,9 @@ const next = require('next');
 const socketIO = require('socket.io');
 const http = require('http');
 const bodyParser = require('body-parser');
-const users = require('./users')
+const cookieParser = require('cookie-parser');
+
+const users = require('./users');
 
 const dev = process.env.NODE_ENV !== 'production';
 
@@ -18,6 +20,16 @@ app.prepare().then(() => {
     const Users = new users(io)
 
     app.use(bodyParser.json());
+    app.use(cookieParser());
+
+    app.post('/login', (req, res) => {
+
+        if(typeof req.body.sessionId === 'undefined') {
+            return res.status(403).end();
+        }
+
+        return res.jsonp({ exist: Users.sessionExist(req.body.sessionId) })
+    })
 
     app.get('*', (req, res) => {
         return handle(req, res)
