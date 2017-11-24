@@ -1,6 +1,7 @@
 import { Component } from 'react'
 import Layout from '../index.js'
 import { LocaleProvider, message } from 'antd'
+import { Provider } from 'mobx-react'
 import frFR from 'antd/lib/locale-provider/fr_FR'
 import LoginForm from '../components/LoginForm'
 import 'isomorphic-fetch'
@@ -17,6 +18,7 @@ export default class extends Component {
 
         const isServer = !!context.req;
         let sessionExpired = false;
+        let sessionId = null;
 
         // If we are server-side and a sessionId cookie exist
         if(isServer && typeof context.req.cookies.sessionId !== 'undefined') {
@@ -32,6 +34,7 @@ export default class extends Component {
 
             if(checkSession.exist === true) {
                 // The session exist, redirecting the user
+                sessionId = context.req.cookies.sessionId;
                 context.res.redirect('/conversation')
             } else {
                 sessionExpired = true

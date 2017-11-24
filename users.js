@@ -1,5 +1,7 @@
-const { observable } = require('mobx');
+const { observable, toJS } = require('mobx');
 const shortid = require('shortid')
+
+const Conversations = require('./conversations')
 
 module.exports = class Users {
 
@@ -7,29 +9,13 @@ module.exports = class Users {
 
         this.io = io;
         this.users = observable([])
+        this.conversations = new Conversations(io)
 
         this.io.on('connection', (socket) => {
 
-            // When a user try to login we check if the username is available
-            socket.on('login', (username) => {
-
-                const isAvailable = this.usernameIsAvailable(username);
-
-                if(!isAvailable) {
-                    return socket.emit('loginResponse', { isAvailable })
-                }
-
-                const user = {
-                    isAvailable,
-                    username,
-                    sessionId: shortid.generate()
-                }
-
-                this.users.push(user)
-                socket.emit('loginResponse', user)
-                this.io.emit('userJoinedGeneral', username)
-
-            });
+            socket.on('login', username => this.login(socket, username));
+            socket.on('disconnect', () => this.disconnect(socket.id));
+            socket.on('message', (data) => this.conversations.handleMessage(this.getUserBySessionId(data.sessionId), data))
         });
     }
 
@@ -40,7 +26,7 @@ module.exports = class Users {
      */
     usernameIsAvailable(username) {
         return this.users.every((user) => {
-            return user.name !== username
+            return user.username !== username
         })
     }
 
@@ -53,5 +39,66 @@ module.exports = class Users {
         return this.users.some((user) => {
             return user.sessionId === sessionId
         })
+    }
+
+    /**
+     * Return a user searched by socket id
+     * @param socketId
+     * @returns {object|undefined}
+     */
+    getUserBySocketId(socketId) {
+        return this.users.find((user) => {
+            return user.socketId === socketId
+        })
+    }
+
+    /**
+     * Return a user searched by session id
+     * @param sessionId
+     * @returns {object|undefined}
+     */
+    getUserBySessionId(sessionId) {
+        return this.users.find((user) => {
+            return user.sessionId === sessionId
+        })
+    }
+
+    /**
+     * Check is the username is available and create the session id if not
+     * @param socket
+     * @param username
+     * @returns {Namespace|Socket|Emitter|*}
+     */
+    login(socket, username) {
+
+        const isAvailable = this.usernameIsAvailable(username);
+
+        if(!isAvailable) {
+            return socket.emit('loginResponse', { isAvailable })
+        }
+
+        const user = {
+            isAvailable,
+            username,
+            sessionId: shortid.generate(),
+            socketId: socket.id
+        }
+
+        this.users.push(user)
+        socket.emit('loginResponse', user)
+        this.io.emit('userJoinedGeneral', username)
+    }
+
+    /**
+     * Handle user disconnection
+     * @param socketId
+     */
+    disconnect(socketId) {
+        const user = this.getUserBySocketId(socketId);
+
+        if(user) {
+            this.io.emit('userLeftGeneral', user.username)
+            this.users.remove(user)
+        }
     }
 }

@@ -2,21 +2,29 @@ import { Component } from 'react'
 import Router from 'next/router'
 import { Form, Icon, Input, Button, message } from 'antd'
 import { observable } from 'mobx'
-import { observer } from 'mobx-react'
+import { observer, inject} from 'mobx-react'
 import io from 'socket.io-client'
 
 const FormItem = Form.Item;
 
-@observer
+@inject('sessionId') @observer
 class ConversationInput extends Component {
+
+    componentDidMount () {
+        this.socket = io();
+    }
 
     // When the user submit de login form
     handleSubmit = (e) => {
         e.preventDefault();
 
         this.props.form.validateFields((err, values) => {
-            if (!err) {
-                return this.socket.emit('login', values.username)
+            if (!err && typeof values.message !== 'undefined') {
+                this.socket.emit('message', {
+                    message: values.message,
+                    sessionId: this.props.sessionId
+                })
+                this.props.form.setFieldsValue({ message: undefined })
             }
         });
     }
@@ -28,9 +36,13 @@ class ConversationInput extends Component {
                 <Form onSubmit={this.handleSubmit}>
                     <FormItem>
                         {getFieldDecorator('message', {
-                            rules: [{ required: true, message: 'Please enter a username' }],
+                            rules: [{ required: false }],
                         })(
-                            <input type="text" placeholder="Type here !" className="conversationInput"/>
+                            <Input
+                                type="text"
+                                placeholder="Type here !"
+                                className="conversationInput"
+                            />
                         )}
                     </FormItem>
                 </Form>
